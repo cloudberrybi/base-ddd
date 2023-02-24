@@ -5,11 +5,11 @@ from .dto_model import DTOModel
 
 class DTORepository:
     @classmethod
-    def save(cls, model: DTOModel) -> Any:
+    def save(cls, model: DTOModel) -> DTOModel:
         pass
 
     @classmethod
-    def find(cls, model_cls: Type[DTOModel], conditions: dict, offset: int, limit: int) -> List[Any]:
+    def find(cls, model_cls: Type[DTOModel], conditions: dict, offset: int, limit: int) -> List[DTOModel]:
         pass
 
     @classmethod
