@@ -4,7 +4,11 @@ from .data_model_opts import DataModelOpts
 from .dto_model import DTOModel
 from .dto_repository import DTORepository
 from .data_filter import DataFilter
-from .error import Error
+from .errors import (
+    Error,
+    StubError,
+    InitStorageError,
+)
 from .base_app_settings import BaseAppSettings
 
 
@@ -16,5 +20,7 @@ __all__ = [
     'DTORepository',
     'DataFilter',
     'Error',
+    'StubError',
+    'InitStorageError',
     'BaseAppSettings',
 ]

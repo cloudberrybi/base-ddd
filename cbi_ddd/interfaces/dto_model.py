@@ -3,6 +3,8 @@ from typing import Any, Optional, List
 
 from pydantic import BaseModel
 
+from cbi_ddd.interfaces.errors import Error
+
 
 class DTOModel(BaseModel):
     class opts:
@@ -17,10 +19,10 @@ class DTOModel(BaseModel):
 
     @classmethod
     def from_data_model(cls, model) -> Any:
-        pass
+        raise NotImplementedError()
 
     def to_data_model(self) -> Any:
-        pass
+        raise NotImplementedError()
 
     def fill_foreign_list_field(self, field: str) -> List[Any]:
         items = []
@@ -28,15 +30,17 @@ class DTOModel(BaseModel):
         foreign_dto_model = self.opts.foreign_fields.get(field, None)
         if foreign_dto_model:
             for item_str in getattr(self, field, []):
-                item_dto = self.opts.repository.get(
+                items_dto = self.opts.repository.find(
                     model_cls=foreign_dto_model,
                     conditions={
                         'object_id': item_str
-                    }
+                    },
+                    offset=0,
+                    limit=1,
                 )
 
-                if item_dto:
-                    items.append(item_dto.to_data_model())
+                if not isinstance(items_dto, Error) and len(items_dto) > 0:
+                    items.append(items_dto[0].to_data_model())
 
         return items
     
@@ -44,14 +48,16 @@ class DTOModel(BaseModel):
         foreign_dto_model = self.opts.foreign_fields.get(field, None)
         if foreign_dto_model:
             item_str = getattr(self, field, None)
-            item_dto = self.opts.repository.get(
+            items_dto = self.opts.repository.find(
                 model_cls=foreign_dto_model,
                 conditions={
                     'object_id': item_str
-                }
+                },
+                offset=0,
+                limit=1,
             )
 
-            if item_dto:
-                return item_dto.to_data_model()
+            if not isinstance(items_dto, Error) and len(items_dto) > 0:
+                return items_dto[0].to_data_model()
         
         return None

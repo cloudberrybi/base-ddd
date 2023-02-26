@@ -7,8 +7,7 @@ from cbi_ddd.interfaces import BaseAppSettings
 
 
 class SettingsRepository:
-    class opts:
-        settings_model: Type[BaseAppSettings]
+    settings_model: Type[BaseAppSettings] = BaseAppSettings
 
     @classmethod
     def get_config(
@@ -18,6 +17,10 @@ class SettingsRepository:
     ) -> BaseAppSettings:
         config_path = os.environ.get(env_name, local_settings_path)
 
-        return cls.opts.settings_model(
+        if not os.path.exists(config_path):
+            print('Not Exists!', config_path)
+            return cls.settings_model()
+
+        return cls.settings_model(
             **toml.load(config_path)
         )

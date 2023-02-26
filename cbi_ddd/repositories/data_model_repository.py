@@ -8,7 +8,7 @@ from cbi_ddd.interfaces import (
     DataModel,
     Error,
 )
-from cbi_ddd.helpers import RabbitMQHelper
+from cbi_ddd.helpers.rabbitmq import RabbitMQHelper
 
 from .storage_repository import StorageRepository
 
