@@ -4,13 +4,13 @@ from typing import List, Type, Tuple
 
 from dramatiq import Actor
 
-from cbi_ddd.interfaces import (
+from cbi_ddd.helpers.rabbitmq import RabbitMQHelper
+from cbi_ddd.repositories.storage_repository import StorageRepository
+
+from ..interfaces import (
     DataModel,
     Error,
 )
-from cbi_ddd.helpers.rabbitmq import RabbitMQHelper
-
-from .storage_repository import StorageRepository
 
 
 class DataModelRepository:
@@ -73,43 +73,47 @@ class DataModelRepository:
         return err
 
     @classmethod
-    def create_save_actors(cls) -> Tuple[Actor, Actor]:
+    def create_save_actors(cls):
         blocking_queue_name = f'{cls.repository_id}_save'
         unblocking_queue_name = f'{cls.repository_id}_usave'
 
-        def actor(**data) -> DataModel | Error:
+        def save_handler(extra:dict={}, **data) -> DataModel | Error:
             model_data = cls.model(**data)
             model_data = cls.pre_save(model_data)
 
-            save_result = StorageRepository.save(model_data)
+            save_result = StorageRepository.save(model_data, **extra)
             if isinstance(save_result, Error):
                 save_result = cls.post_save_error(model_data, save_result)
             else:
                 save_result = cls.post_save_success(save_result)
             return save_result
 
+        def blocking_actor(extra:dict={}, **data) -> DataModel | Error:
+            return save_handler(extra=extra, **data)
+        
+        def unblocking_actor(extra:dict={}, **data):
+            save_handler(extra=extra, **data)
+
         cls.save_actor = dramatiq.actor(
             store_results=True,
             queue_name=RabbitMQHelper.queue_name(blocking_queue_name),
             actor_name=blocking_queue_name,
-        )(actor)
+        )(blocking_actor)
 
         cls.usave_actor = dramatiq.actor(
             store_results=False,
             queue_name=RabbitMQHelper.queue_name(unblocking_queue_name),
             actor_name=unblocking_queue_name
-        )(actor)
-
-        return (cls.save_actor, cls.usave_actor)
+        )(unblocking_actor)
 
     @classmethod
-    def create_get_actor(cls) -> Actor:
+    def create_get_actor(cls):
         queue_name = f'{cls.repository_id}_get'
 
-        def actor(conditions: dict) -> DataModel | None | Error:
+        def actor(conditions: dict, **extra) -> DataModel | None | Error:
             conditions = cls.pre_get(conditions)
 
-            get_result = StorageRepository.get(cls.model, conditions)
+            get_result = StorageRepository.get(cls.model, conditions, **extra)
             if isinstance(get_result, Error):
                 get_result = cls.post_get_error(conditions, get_result)
             else:
@@ -122,16 +126,14 @@ class DataModelRepository:
             actor_name=queue_name,
         )(actor)
 
-        return cls.get_actor
-
     @classmethod
-    def create_find_actor(cls) -> Actor:
+    def create_find_actor(cls):
         queue_name = f'{cls.repository_id}_find'
 
-        def actor(conditions: dict, offset: int, limit: int) -> List[DataModel] | Error:
+        def actor(conditions: dict, offset: int, limit: int, **extra) -> List[DataModel] | Error:
             conditions, offset, limit = cls.pre_find(conditions, offset, limit)
 
-            find_result = StorageRepository.find(cls.model, conditions, offset, limit)
+            find_result = StorageRepository.find(cls.model, conditions, offset, limit, **extra)
             if isinstance(find_result, Error):
                 find_result = cls.post_find_error(conditions, offset, limit, find_result)
             else:
@@ -144,17 +146,15 @@ class DataModelRepository:
             actor_name=queue_name,
         )(actor)
 
-        return cls.find_actor
-
     @classmethod
-    def create_delete_actors(cls) -> Actor:
+    def create_delete_actors(cls):
         blocking_queue_name = f'{cls.repository_id}_delete'
         unblocking_queue_name = f'{cls.repository_id}_udelete'
 
-        def actor(conditions: dict, limit: int) -> dict | Error:
+        def actor(conditions: dict, limit: int, **extra) -> dict | Error:
             conditions, limit = cls.pre_delete(conditions, limit)
 
-            delete_result = StorageRepository.delete(cls.model, conditions, limit)
+            delete_result = StorageRepository.delete(cls.model, conditions, limit, **extra)
             if isinstance(delete_result, Error):
                 delete_result = cls.post_delete_error(conditions, limit, delete_result)
             else:
@@ -173,28 +173,40 @@ class DataModelRepository:
             actor_name=unblocking_queue_name
         )(actor)
 
-        return (cls.delete_actor, cls.udelete_actor)
+    @classmethod
+    def init_actors(cls, save=True, get=True, find=True, delete=True):
+        if save:
+            cls.create_save_actors()
+
+        if get:
+            cls.create_get_actor()
+
+        if find:
+            cls.create_find_actor()
+
+        if delete:
+            cls.create_delete_actors()
 
     @classmethod
-    def save(cls, **kwargs) -> DataModel:
-        return cls.save_actor.send(**kwargs).get_result(block=True)
+    def save(cls, extra={}, **kwargs) -> DataModel | Error:
+        return cls.save_actor.send(extra=extra, **kwargs).get_result(block=True)
     
     @classmethod
-    def usave(cls, **kwargs) -> None:
-        return cls.usave_actor.send(**kwargs)
+    def usave(cls, extra={}, **kwargs) -> None:
+        return cls.usave_actor.send(extra=extra, **kwargs)
 
     @classmethod
-    def get(cls, conditions: dict) -> DataModel | None:
-        return cls.get_actor.send(conditions=conditions).get_result(block=True)
+    def get(cls, conditions: dict, **extra) -> DataModel | None | Error:
+        return cls.get_actor.send(conditions=conditions, **extra).get_result(block=True)
 
     @classmethod
-    def find(cls, conditions: dict, offset: int, limit: int) -> List[DataModel]:
-        return cls.find_actor.send(conditions=conditions, offset=offset, limit=limit).get_result(block=True)
+    def find(cls, conditions: dict, offset: int, limit: int, **extra) -> List[DataModel] | Error:
+        return cls.find_actor.send(conditions=conditions, offset=offset, limit=limit, **extra).get_result(block=True)
 
     @classmethod
-    def delete(cls, object_id: str) -> bool:
-        return cls.delete_actor.send(object_id=object_id).get_result(block=True)
+    def delete(cls, conditions: dict, limit: int = 1, **extra) -> bool | Error:
+        return cls.delete_actor.send(conditions=conditions, limit=limit, **extra).get_result(block=True)
 
     @classmethod
-    def udelete(cls, object_id: str) -> None:
-        return cls.udelete_actor.send(object_id=object_id)
+    def udelete(cls, conditions: dict, limit: int = 1, **extra) -> None:
+        return cls.udelete_actor.send(conditions=conditions, limit=limit, **extra)

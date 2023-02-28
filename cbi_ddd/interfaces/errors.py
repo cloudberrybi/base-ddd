@@ -2,21 +2,37 @@ class Error(Exception):
     pass
 
 
+class StorageError(Error):
+    pass
+
+
+class SaveError(StorageError):
+    pass
+
+
+class FindError(StorageError):
+    pass
+
+
+class DeleteError(StorageError):
+    pass
+
+
 class StubError(Error):
     pass
 
 
-class StubSaveError(StubError):
+class StubSaveError(StubError, SaveError):
     pass
 
 
-class StubFindError(StubError):
+class StubFindError(StubError, FindError):
     pass
 
 
-class StubDeleteError(StubError):
+class StubDeleteError(StubError, DeleteError):
     pass
 
 
-class InitStorageError(Error):
+class InitStorageError(StorageError):
     pass

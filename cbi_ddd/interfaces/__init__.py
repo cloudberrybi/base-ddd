@@ -10,6 +10,7 @@ from .errors import (
     InitStorageError,
 )
 from .base_app_settings import BaseAppSettings
+from .data_model_repository import DataModelRepository
 
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     'StubError',
     'InitStorageError',
     'BaseAppSettings',
+    'DataModelRepository',
 ]
