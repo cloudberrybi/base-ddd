@@ -8,7 +8,7 @@ with open('requirements.txt') as f:
 setup(
     name='cbi_ddd',
     zip_safe=True,
-    version='1.0.0',
+    version='1.0.2',
     description='Base CBI objects',
     url='https://github.com/cloudberrybi/base-ddd',
     maintainer='CloudberryBI',

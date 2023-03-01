@@ -5,12 +5,9 @@ from typing import List, Type, Tuple
 from dramatiq import Actor
 
 from cbi_ddd.helpers.rabbitmq import RabbitMQHelper
-from cbi_ddd.repositories.storage_repository import StorageRepository
 
-from ..interfaces import (
-    DataModel,
-    Error,
-)
+from .data_model import DataModel
+from .errors import Error
 
 
 class DataModelRepository:
@@ -78,6 +75,8 @@ class DataModelRepository:
         unblocking_queue_name = f'{cls.repository_id}_usave'
 
         def save_handler(extra:dict={}, **data) -> DataModel | Error:
+            from cbi_ddd.repositories.storage_repository import StorageRepository
+
             model_data = cls.model(**data)
             model_data = cls.pre_save(model_data)
 
@@ -111,6 +110,8 @@ class DataModelRepository:
         queue_name = f'{cls.repository_id}_get'
 
         def actor(conditions: dict, **extra) -> DataModel | None | Error:
+            from cbi_ddd.repositories.storage_repository import StorageRepository
+
             conditions = cls.pre_get(conditions)
 
             get_result = StorageRepository.get(cls.model, conditions, **extra)
@@ -131,6 +132,8 @@ class DataModelRepository:
         queue_name = f'{cls.repository_id}_find'
 
         def actor(conditions: dict, offset: int, limit: int, **extra) -> List[DataModel] | Error:
+            from cbi_ddd.repositories.storage_repository import StorageRepository
+
             conditions, offset, limit = cls.pre_find(conditions, offset, limit)
 
             find_result = StorageRepository.find(cls.model, conditions, offset, limit, **extra)
@@ -152,6 +155,8 @@ class DataModelRepository:
         unblocking_queue_name = f'{cls.repository_id}_udelete'
 
         def actor(conditions: dict, limit: int, **extra) -> dict | Error:
+            from cbi_ddd.repositories.storage_repository import StorageRepository
+
             conditions, limit = cls.pre_delete(conditions, limit)
 
             delete_result = StorageRepository.delete(cls.model, conditions, limit, **extra)
